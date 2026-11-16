@@ -1,0 +1,94 @@
+name: setup
+
+# Runs the one-step installers (setup.ps1, setup.sh) for real against the published release:
+# download, checksum, dependencies, install, start, and a second run that updates a running agent.
+on:
+  pull_request:
+    paths: [setup.ps1, setup.sh, .github/workflows/setup.yml]
+  push:
+    branches: [main]
+    paths: [setup.ps1, setup.sh, .github/workflows/setup.yml]
+  schedule:
+    - cron: '17 6 * * 1'   # weekly: the latest release against current winget, Homebrew and distribution packages
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false   # the jobs run downloaded programs and need no Git access
+      - name: shellcheck
+        run: |
+          bash -n setup.sh
+          shellcheck setup.sh
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+          $issues = Invoke-ScriptAnalyzer -Path setup.ps1 -Severity Error, ParseError
+          $issues | Format-Table -AutoSize | Out-String -Width 200
+          if ($issues) { throw "PSScriptAnalyzer: $($issues.Count) error(s)" }
+
+  windows:
+    name: setup.ps1 (Windows PowerShell 5.1)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false   # the jobs run downloaded programs and need no Git access
+      - name: First install
+        shell: powershell
+        run: '& ([scriptblock]::Create((Get-Content -Raw .\setup.ps1))) -Yes -NoPhone -AllowAdministrator'
+      - name: Check the running agent
+        shell: powershell
+        run: |
+          $info = Invoke-RestMethod http://127.0.0.1:8765/api/info
+          "version $($info.version), adb $($info.adb)"
+          if (-not $info.adb) { throw 'setup did not install adb' }
+          if (-not (Test-Path "$env:LOCALAPPDATA\PhoneBox\app\PhoneBoxAgent.exe")) { throw 'agent not in the install folder' }
+          if (-not (Test-Path ([Environment]::GetFolderPath('Startup') + '\PhoneBox.lnk'))) { throw 'no Startup shortcut' }
+      - name: Second run replaces a running agent
+        shell: powershell
+        run: |
+          & ([scriptblock]::Create((Get-Content -Raw .\setup.ps1))) -Yes -NoPhone -AllowAdministrator
+          Invoke-RestMethod http://127.0.0.1:8765/api/info | Select-Object version, os
+      - name: Stop the agent
+        if: always()
+        shell: powershell
+        run: Get-Process PhoneBoxAgent -ErrorAction SilentlyContinue | Stop-Process -Force
+
+  unix:
+    name: setup.sh (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false   # the jobs run downloaded programs and need no Git access
+      - name: First install (piped, as with curl | bash)
+        run: cat setup.sh | bash -s -- --yes --no-phone
+      - name: Check the running agent
+        run: |
+          curl -fsS http://127.0.0.1:8765/api/info | tee /tmp/info.json; echo
+          python3 -c 'import json; i = json.load(open("/tmp/info.json")); assert i["adb"], "setup did not install adb"'
+      - name: Second run replaces a running agent
+        run: |
+          bash setup.sh --yes --no-phone --no-extras
+          curl -fsS http://127.0.0.1:8765/api/info >/dev/null
+      - name: Stop the agent
+        if: always()
+        run: |
+          launchctl unload "$HOME/Library/LaunchAgents/net.oxog.phonebox.agent.plist" 2>/dev/null || true
+          systemctl --user stop phonebox.service 2>/dev/null || true
+          pkill -x PhoneBoxAgent || true

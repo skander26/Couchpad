@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Review rules for PhoneBox. They repeat CONTRIBUTING.md so the first automated pass catches what maintainers ask for.
+language: en-US
+reviews:
+  profile: chill
+  path_instructions:
+    - path: "agent/PhoneBox.Agent/**/*.cs"
+      instructions: |
+        Security model to check every change against:
+        - The agent listens on 127.0.0.1. The Wi-Fi port only serves paths on the allow-list in Lan.cs, over pinned TLS
+          with the paired key. Flag any new path added to that allow-list and ask what the phone needs it for.
+        - The phone must only send ids (shortcut, app, widget, page); flag endpoints that take a command, file path or
+          URL from a request and act on it.
+        - Features that control the computer must be gated by a per-widget option checked with
+          Widgets(enabledPagesOnly: true). New features that start programs, record or send data must be off by default.
+        - Secrets (tokens, API keys, calendar URLs, commands) must never be returned by AgentConfig.ToPublic() (including
+          Smart Stack children) or written to logs or error messages that reach the phone.
+        - Processes: ProcessStartInfo.ArgumentList only, no shell, no request text; timeouts and kill on cancel.
+        - New settings need a default, normalization of bad values, and the same key in all three config.default*.json.
+        - Every new outbound network connection needs a row in PRIVACY.md (host, what is sent, how to turn it off).
+        - Files with keys (config.json, tokens) are written owner-only (AppPaths.WriteAllTextPrivate / CreatePrivate).
+        - The Claude OAuth token is read-only: never refresh it.
+    - path: "android/app/src/main/assets/www/**"
+      instructions: |
+        The phone panel (WebView). Build DOM with textContent / h(); flag innerHTML with data from the agent, widget
+        options or the network. Native bridge calls go through the keyed `bridge` wrapper in main.js. Widgets must render
+        an empty state without the native bridge (the web demo and UI tests run without it). Anything fetched from the
+        internet must be listed in PRIVACY.md.
+    - path: "android/app/src/main/java/**"
+      instructions: |
+        minSdk is 28. Flag new permissions, broadcast receivers registered without the right export flag on Android 13+,
+        and any change that lets a sandboxed frame or a non-panel request reach the native bridge or the agent.
+    - path: "agent/PhoneBox.Agent/settings.html"
+      instructions: |
+        Local settings page (127.0.0.1 only). Same DOM rules as the panel. Settings saves use the X-Config-Version
+        check; flag writes that bypass it.
+    - path: "PRIVACY.md"
+      instructions: |
+        Check that each row matches the code: host, what is sent, when, and whether it can be turned off.
+    - path: ".github/workflows/**"
+      instructions: |
+        Actions are pinned to commit SHAs. Release artifacts are checksummed and attested after any step that changes
+        them. Flag secrets used in pull_request workflows.

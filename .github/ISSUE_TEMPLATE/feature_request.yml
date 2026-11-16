@@ -1,0 +1,26 @@
+name: Feature request
+description: An idea for a widget, an integration or a change
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: The situation and what is hard today, more than the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could PhoneBox help?
+  - type: textarea
+    id: data
+    attributes:
+      label: Data and privacy
+      description: Would this need an online service, an account, or access to something on the computer?
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I'd like to build this myself (please read CONTRIBUTING.md and wait for a go-ahead on larger features)
