@@ -1,0 +1,591 @@
+# Changelog
+
+## 0.9.10 — 2026-11-16
+
+Remote control feature, Wi-Fi latency optimization, and safer updater defaults:
+
+- **Agent (`/api/remote`)**: Windows `SendInput` (and Linux `xdotool`) cursor movement, clicks/double-clicks, drag hold with 5-second stuck-button protection, wheel/horizontal scroll, keyboard shortcuts, and Unicode text typing behind opt-in **Allow remote input** (default off, tray menu + Settings toggle, `403` when off, `409` on UIPI block).
+- **Remote UI & Motion mode**: Added the `remote` widget and **Remote** template (`idleSec: 0`) with multi-touch touchpad, **Hold to move** gyroscope cursor control (`Sensor.TYPE_GYROSCOPE`, configurable axes/invert, EMA smoothing, dead zone), soft keyboard input, quick keys, media/volume/shortcut buttons, and **Disable remote**.
+- **Low-latency Wi-Fi**: Pinned-TLS connection reuse with eager response draining, `TCP_NODELAY`, skipping unnecessary USB probes while on Wi-Fi, `WIFI_MODE_FULL_LOW_LATENCY` `WifiLock` while the Remote page is active, and a native coalescing background sender thread.
+- **Auto-update safety**: `updates.auto` now defaults to `false`, background auto-updates skip non-single-file local source installs, and `updates.repo` is configurable and validated in Settings.
+
+## 0.9.9 — 2026-11-15
+
+Install PhoneBox with one command on Windows, Linux and macOS. The installer checks the download and sets up what is
+missing. This release also adds OLED burn-in protection and Pomodoro sequences with long breaks.
+
+**Android app**
+- OLED burn-in protection (#79), in **Settings › General › OLED burn-in protection**, both off by default:
+  - **Pixel shift**: the panel moves by up to 2 px every 2 minutes, and the night clock drifts around the screen.
+  - **Idle dim**: after a set time without a touch, a dark layer covers the panel. The touch that brightens it does
+    not press anything under it. A page switch, a notification, a permission prompt, waking on plug-in and the
+    proximity sensor brighten it too.
+- Pomodoro (#82):
+  - **Long breaks**: a long break after every N focus sessions.
+  - **Your own sequence**: for example `25 focus, 5 break, 25 focus, 5 break, 25 focus, 15 long`. It advances by
+    itself, can repeat a number of rounds, and then stops with a message.
+  - **Display**: the widget shows "Focus 2/3" or "Long break", in blue. ↺ restarts the step; pressed again it
+    restarts the sequence.
+  - **Presets**: put several Pomodoro widgets on your pages, each with its own sequence (study, reading, deep work).
+  - **Compatibility**: existing widgets keep working as before, including a timer that is running during the update.
+
+**Setup**
+- One-step installers: `irm https://raw.githubusercontent.com/ersinkoc/phonebox/main/setup.ps1 | iex` on Windows,
+  `curl -fsSL https://raw.githubusercontent.com/ersinkoc/phonebox/main/setup.sh | bash` on Linux and macOS. They
+  download the latest release and check its checksum (and its build provenance with a signed-in GitHub CLI). They
+  install adb and the optional helpers when missing, after asking, then the agent and start at login. They can also
+  put the app on a phone over USB, with step-by-step help for USB debugging, and finally start PhoneBox. Warnings
+  cover the unsigned build, antivirus, USB debugging, firewall, Linux USB permissions and macOS prompts. Running
+  setup again updates or repairs PhoneBox and keeps the settings; `-DryRun` / `--dry-run` changes nothing. A CI workflow runs
+  both installers on Windows, Linux x64/ARM64 and macOS every week.
+
+**Docs**
+- The README quick start is rewritten around setup: what it does, its options and warnings, connecting the phone
+  over USB or Wi-Fi only, other ways to install, and how to uninstall.
+
+## 0.9.8 — 2026-11-15
+
+Pair a phone over Wi-Fi without a USB cable: the computer shows a QR code, the phone scans it with its camera and
+pairs after you compare a check code. The Claude quota keeps its last reading across restarts.
+
+**Agent**
+- Pair a phone over Wi-Fi without USB: Settings › General › Wi-Fi & Tailscale › **Pair a phone over Wi-Fi** shows a
+  QR code to install the app and one to pair. The pairing link carries the computer's addresses, the certificate
+  fingerprint and a one-time code (5 minutes, single use); the phone trades the code for the Wi-Fi key over the
+  pinned TLS connection, so the key is never in the QR code.
+- Claude quota: the last successful reading is kept on disk, so after a restart (an update) or while Anthropic
+  rate-limits the checks, the panel shows the last values and their age instead of an empty quota.
+
+**Android app**
+- Opens pairing links from the computer's QR code: it shows the computer's name, addresses and a check code to compare
+  with the computer's pairing window, and pairs only after you confirm. It accepts only private network and Tailscale
+  addresses, and pairing a computer never replaces another one with the same name.
+
+**Docs**
+- A pairing page at `/pair/` on the project site, which the QR code opens: it checks the link, shows the check code
+  and hands the link to the app (or to the download page when the app is missing). The pairing details stay in the
+  part of the link that browsers never send to a server. The README and the privacy policy describe both ways to pair.
+
+## 0.9.7 — 2026-11-15
+
+The agent no longer needs .NET installed: each release is one self-contained program. The Claude quota shows again
+after Anthropic rate-limits it, Open on phone works over Wi-Fi, and there is a contributing guide.
+
+**Agent**
+- Claude quota: when Anthropic's usage endpoint answers 429 (it is rate limited per account, and Claude Code uses it
+  too), the agent now waits as long as `Retry-After` asks and backs off on repeated errors (1, 2, 4 … 15 minutes)
+  instead of asking again every minute, which could keep the limit in place so the quota never showed. The panel says
+  when it will try again and keeps the last values.
+- The release agent is a single self-contained program on every system: unzip and run, no .NET runtime to install
+  (Windows needed the .NET 10 Desktop Runtime before). The zips are larger (Windows about 65 MB, Linux and macOS
+  about 45 MB) and updates download that size. After updating, the agent removes the framework-dependent files the
+  updater leaves behind; source installs (`install.ps1`, `install.sh`) stay framework-dependent.
+- Settings: **Open on phone** works over Wi-Fi and Tailscale too. It shows the page selected in the editor on the phone
+  (over USB it also wakes the phone, as before), and says "No phone connected" instead of claiming it worked; a page that is not saved yet asks to save first (#62, #64,
+  thanks to d4rk-lucif3r).
+
+**Docs**
+- [CONTRIBUTING.md](CONTRIBUTING.md), pull request and issue templates, and review rules for the automated reviewer:
+  scope, the security model, privacy and the tests to run.
+
+## 0.9.6 — 2026-11-15
+
+A Computers widget to switch between paired computers, a privacy policy and code signing policy, fewer outbound
+requests (weather only when shown, a switchable ping), owner-only settings files on macOS / Linux, and a live stream
+that keeps up under heavy load on macOS (thanks to d4rk-lucif3r).
+
+**Panel**
+- Computers widget: the computers this phone is paired with over Wi-Fi, one tap to switch, as in the page overview.
+  The buttons wait while a USB cable is plugged in, since USB always wins (#58).
+- The weather is fetched only while a page has a widget that uses it (weather, forecast, sun & moon, a clock with its
+  weather line, Custom HTML); before, the phone asked Open-Meteo every 15 minutes whatever was on screen.
+
+**Agent**
+- On macOS and Linux `config.json`, its backup and the pushed data are written readable only by your user (0600), and
+  an existing config is tightened at start; before, they followed the umask (often 0644), so other local users could
+  read the Wi-Fi, webhook and Home Assistant keys.
+- Settings › General › Ping: the host pinged every 5 seconds for the ping metric and the "ping high" rule (1.1.1.1 by
+  default); empty turns pinging off.
+- macOS / Linux: the live stream no longer waits on `osascript`, `wpctl` or `pactl` for the volume. Under heavy CPU
+  load those took seconds, `/api/state` and the stream stopped answering, and the phone kept reconnecting with
+  "computer not connected"; the volume is now read in the background, and volume controls still act on a fresh
+  reading (#60, thanks to d4rk-lucif3r).
+- Settings: the badge says "Phone connected · Wi-Fi" for a phone on Wi-Fi or Tailscale instead of "No phone
+  connected", and "· USB" over the cable (#60).
+
+**Docs**
+- A privacy policy ([PRIVACY.md](PRIVACY.md)) lists every connection the agent and the app make and how to turn each
+  one off; the README no longer says that nothing else leaves the machine.
+- Code signing policy in the README and on the demo site, linked under every release: the Windows agent is to be
+  signed through SignPath Foundation (application pending, #56).
+
+## 0.9.5 — 2026-11-14
+
+AMD and Intel graphics cards with no vendor tool, a GPU details widget, internet radio in Now Playing with station
+cards, 12-hour times, font size, and 18 community pull requests (thanks to blx10).
+
+**Panel**
+- 12-hour times: Settings › Display › Time format shows 2:05 PM instead of 14:05 on the clock, world clocks, night
+  screen, agenda, Next up, countdown, sunrise/sunset, quota resets and "rules paused until" (#31), or follows the
+  phone's own 24-hour setting (#50). 24-hour by default.
+- World clocks with many zones in a narrow widget no longer run their times into each other.
+- Smart Stack: a pause button next to the dots (or a long press on the dots) stops the rotation (#22).
+- GPU details widget: one graphics card in depth (load, VRAM or, for an integrated GPU, its shared memory, power,
+  temperature against the card's limit, core and memory clocks, fan, driver and where the data came from). It can show
+  the second GPU of a PC, typically the processor's integrated one.
+- New metrics for tiles, gauges and charts: GPU hot spot, GPU power and GPU clock; VRAM is now on tiles and charts, the
+  GPU and CPU temperatures on charts. The GPU tile shows the temperature and power of AMD and Intel cards too.
+- Memory & disks shows a bar for every GPU.
+- Font and font size (#42, #44): Settings › Appearance picks a font (original, sans-serif, rounded, condensed, serif,
+  monospace) and a size from 50 to 200 %, for the whole panel, a page or one widget. The clock also scales on older
+  WebViews without container queries.
+- An outdated Android WebView (older than Chromium 105, which breaks widget scaling) is flagged on the panel and in
+  Settings › Phone connection, with how to update it (#45).
+- When the phone has no internet of its own, the weather, air quality, Hacker News, exchange rate and crypto widgets
+  fetch through the agent over USB (#38). Only those five HTTPS feeds are allowed; the proxy is not reachable over Wi-Fi.
+- AI quotas / CodexBar: every provider CodexBar reports (Cursor, Copilot, Gemini, z.ai, OpenRouter and more) with
+  pace and reset notes (#23); an optional cost overview card with the spend and tokens of the last 30 days and the
+  top models (#24, #25), off by default; the widget's provider list offers the providers CodexBar currently reports and
+  keeps saved ones that are offline (#26).
+- Internet radio in Now Playing (#17): the station playing on the computer shows as the track, with its play time;
+  ⏮ / ⏭ switch stations and ⏯ stops and resumes. Starting a station pauses the music that was playing, and resuming
+  that music stops the radio (#29).
+- Radio widget (#20): station cards with logos (from the station's own logo URL, or, if allowed in Settings, looked up
+  in public radio directories) or a sliding card row; a tap on a playing station stops it.
+- A tap on a CPU or RAM tile, gauge or chart, or on Memory & disks, opens the Processes page sorted by that resource;
+  the Processes widgets show the total CPU and RAM use, and app icons are cached instead of loaded on every refresh (#35).
+- Radio stations can be switched off and put in order in Settings › Control Deck; ⏮ / ⏭ skip switched-off
+  stations (#27). Stations can be imported by country from radio-browser.info, and the configured streams checked (#28).
+
+**Agent**
+- AMD and Intel GPUs (#49). On Windows the agent reads every GPU the way Task Manager does, with no vendor tool: its
+  name, load, VRAM and shared memory, temperature, memory clock, power share and driver, through the graphics kernel
+  (D3DKMT) and the GPU performance counters. LibreHardwareMonitor's web server, when it runs, adds the hot spot,
+  memory temperature, board power, fan and clocks. On Linux, AMD cards come from `amdgpu` sysfs (load, VRAM, GTT,
+  temperatures, power, fan, clocks) and Intel ones show their clock. NVIDIA stays on `nvidia-smi`, which now also reports
+  every card in a multi-GPU PC, the memory clock and the driver version.
+- The state carries `pc.gpus`, all GPUs with the main one first (a graphics card before an integrated GPU);
+  `pc.gpu` stays the main GPU, so older panels keep working.
+- CodexBar's cost scan (`codexbar cost --days 30`) runs only while a quota widget shows the cost overview, every
+  20 minutes and apart from the usage refresh; its figures expire after an hour without a successful run (#24).
+- Quota rules keep firing on the last known limits while a provider reports an error; providers CodexBar stops
+  reporting no longer keep stale limits (#23).
+- macOS and Linux: cover art that arrives late is picked up, and the art of a finished track no longer lingers (#34).
+- Radio streams in HLS (`.m3u8`) play on Windows, on the chosen output device (#18). On Linux and macOS, sound and
+  radio controls play through `ffplay`, `mpv` or `vlc`, whichever is installed (#33).
+- Radio directory imports refuse stream addresses inside a home network (`router`, `nas.lan`, `192.168.1.1.nip.io`);
+  logo downloads and stream checks only connect to public addresses and never follow a redirect from https to http.
+
+## 0.9.4 — 2026-11-11
+
+A full audit of the agent, the panel, the settings page and the tooling. Every fix below has a regression test or a
+recorded proof.
+
+**Panel**
+- After the agent restarts (an update, a reboot) the panel no longer ignores its notifications, rule page switches
+  and Claude Code permission prompts until the new agent has sent as many events as the old one.
+- Timer and Pomodoro alarms go off on whatever page is showing, not only when their own page is open.
+- Control Deck widgets have their padding back (titles were cut off at the card's corner), faders show their level
+  on the track, and a fader keeps following the computer after a tap that did not move it. Ducking to 0 % works.
+- World clocks show the right time as soon as their page is visible again; a daily counter and the Pomodoro's
+  "today" count start over at midnight while the panel stays open; a counter, gauge or On air sign without saved
+  options behaves as the settings page shows it.
+- Web widgets (rates, prices, Hacker News, air quality) retry within a minute after a failed load. Back closes the
+  session details dialog. "now ago" reads "just now".
+- The phone no longer sends a slow POST (a container restart, a Home Assistant switch) a second time over Wi-Fi.
+
+**Agent**
+- Calendar: recurring events follow more of RFC 5545 (weekdays in a daily rule, "last Thursday of November",
+  week start, BYSETPOS, leap-day birthdays, escaped backslashes) and keep their local time across daylight saving.
+  Calendars that share a name no longer multiply their events while a feed is unreachable.
+- A quota window that has already reset is no longer shown as used up. CodexBar texts use a decimal point on every
+  Windows locale. A leftover Claude Code session file whose process ID was reused is not shown as a live session.
+- Rules: a pushed "OFF" / "False" / `{"value":"off"}` turns a push rule off, and "18:00-24:00" lasts all evening.
+- Battery care keeps trying to switch the power back on after a failed attempt.
+- A phone without the app is offered "Install the phone app" again, and no longer blocks the phones after it.
+- The settings page can save again after `config.json` was left unreadable by a hand edit; a `null` entry in the
+  settings is answered with a message instead of an error page. Pushed values reach `data.json` even while a
+  script pushes every second. Page, shortcut and rule ids keep the Turkish capital İ.
+- Control Deck: a folder shortcut is not mistaken for a running app; toggle shortcuts run their "off" command; a
+  task that cannot start says so; a sleep timer can be cancelled after its player closed and fades Store apps such
+  as Spotify; a Spotify timeout is reported instead of failing the request.
+- The Command widget's Linux / macOS command can be edited in the settings.
+
+**Settings page**
+- Multi-select options (chart series, quota providers, shortcut keys) keep every tick, not only the last one.
+- Text options of a widget inside a Smart Stack can be typed normally. Templates and stack children are saved with
+  the defaults the inspector shows. "Add a widget" finds room it used to miss. A rule switched to "show the page"
+  stores the page it displays.
+
+**Web demo and tooling**
+- The [live demo](https://ersinkoc.github.io/phonebox/) shows all 30 templates and answers like the agent: the
+  phone-facing settings without commands, working volume, media, process and Control Deck controls, the same
+  refusals and error texts. The landing page takes its widget and template counts and the version from the sources.
+- `install.ps1` stops when the build fails instead of starting the previous version; the APK installer reports
+  adb's real answer under Windows PowerShell 5.1.
+
+## 0.9.3 — 2026-11-11
+
+- Support Podman for the containers widget ([#12](https://github.com/ersinkoc/phonebox/pull/12)). Parse Podman's JSON
+  array and NDJSON container/stats output (`Id`, `Names` arrays, object labels, numeric CPU/memory), hide pod infra
+  containers, and fall back between `docker` and `podman` when one is unavailable. The first request no longer reports
+  "Docker is not running" before the cache is filled, and start/stop/restart waits for an in-flight poll so the panel
+  shows the new state.
+- Match Activity Monitor's "Memory Used" on macOS: app memory (anonymous minus purgeable) plus wired and compressed
+  pages ([#11](https://github.com/ersinkoc/phonebox/pull/11)).
+- Hide CodexBar's own `claude` usage probe from the sessions widget, matching only its exact
+  `CodexBar/ClaudeProbe` directory so real projects with similar names stay visible
+  ([#13](https://github.com/ersinkoc/phonebox/pull/13)).
+- Swipe past the last page to wrap to the first, and past the first to wrap to the last
+  ([#14](https://github.com/ersinkoc/phonebox/pull/14)). The jump is instant, and drags that start on sliders,
+  buttons, the volume bar or lists never flip pages.
+
+## 0.9.2 — 2026-11-10
+
+- Fix webhook JSON payloads with nonnumeric `ttl` fields causing an unhandled exception. Only integer payload TTLs
+  set an expiration; other field values remain ordinary data, and an explicit request TTL still takes priority.
+- Enforce the 64 KB webhook body limit in bytes even for chunked requests without Content-Length, including
+  multibyte UTF-8 text. Oversized bodies are rejected before any pushed value is stored.
+- Add eight regression cases covering TTL types, explicit overrides and ASCII/multibyte body boundaries.
+
+## 0.9.1 — 2026-11-10
+
+- Fix stale Windows media cover art after switching YouTube/Chromium tracks ([#9](https://github.com/ersinkoc/phonebox/issues/9)).
+  Refresh delayed thumbnails and media-property changes, periodically recheck missed updates, and keep the artwork ID
+  stable when the image is unchanged. Clear artwork when the media session closes.
+- Recover the four affected default icons from known ANSI/UTF-8 double-encoded forms ([#10](https://github.com/ersinkoc/phonebox/issues/10)).
+  Repair only page/shortcut icon fields, preserve the original configuration in the normal backup, and escape saved
+  icon values so ANSI-based editors cannot corrupt them. Other user text and commands remain unchanged.
+
+## 0.9.0 — 2026-11-10
+
+- Add optional global, page and widget appearance settings with Original, Rounded cards, Flat, Content only and
+  Seamless panel presets. Configure corners, grid spacing, widget/page padding, borders and shadows independently.
+- Preview unsaved appearance changes in the real panel from General settings; page/widget inspectors support
+  overrides and resetting inheritance. Smart Stack children inherit their stack appearance.
+- Preserve the original look for existing layouts, keep explicit zero/false values, bound imported settings and
+  retain device safe areas. Page sharing and duplication preserve appearance.
+
+
+## 0.8.0 — 2026-11-10
+
+- Add 58 Control Deck widget types and six templates, bringing the catalog to 113 widgets and 30 templates.
+- Add native Windows application/device audio faders, channel balance, meters, microphone controls, audio-role
+  selection, captured profiles, disconnect-safe push-to-talk, ducking and opt-in PC audio listening.
+- Add media source/transport/seek/mode controls, Spotify PKCE connection with private token storage, queue/library/
+  playlist actions, computer-side soundboard/radio and a sleep fade/pause timer.
+- Add application dock/focus, configured keys/macros/snippets/projects, window/display profiles, desktop switching,
+  monitor brightness, power plans and hold-confirmed power controls.
+- Add OBS mixer/scenes/sources/recording/stream/replay/transition/virtual-camera panels, meeting shortcuts and timers,
+  tracked build/dev-server jobs, service controls and GitHub workflow bindings. Existing Docker/HA controls remain.
+- Add optional SoundVolumeView routing, measured Voicemeeter controls, MIDI pads and OSC messages. External programs,
+  accounts and hardware require setup; Windows native features do not imply Linux/macOS parity.
+- Add desktop binding/profile setup, dependency feedback and ID-only phone control requests. Prevent an ambiguous
+  submitted control POST from being automatically retried over Wi-Fi.
+
+
+## 0.7.3 — 2026-11-10
+
+- Fix the launch crash on Android 9 and 10 (API 28–29), reported in
+  [issue #8](https://github.com/ersinkoc/phonebox/issues/8) by [0z-zy](https://github.com/0z-zy).
+  Full-screen mode now uses legacy immersive sticky flags on these versions; Android 11+ retains the window-insets path.
+- Run full Android debug lint in CI and classify `NewApi` findings as fatal, so unsupported framework calls block
+  both CI and release APK builds. Before the fix, lint reproduced all five unguarded API-30 calls in `hideSystemUi`.
+
+## 0.7.2 — 2026-11-10
+
+Native Antigravity quotas on Windows, Linux and macOS. Existing layouts and pairing settings are retained.
+
+- Add native Antigravity quota and plan monitoring, adapted from [PR #7](https://github.com/ersinkoc/phonebox/pull/7)
+  by [Biswajit9609](https://github.com/Biswajit9609). Support flat and nested measured quota fractions; skip unknown
+  or invalid values instead of showing unused quota. Preserve measured zero/full usage.
+- Discover legacy Windows/Linux language-server names and extension-server ports with the matching CSRF token.
+  Reject unrelated editor processes, try other candidates after a failed probe, bound local requests and macOS
+  process reads, and fall back to measured model quotas from older IDE servers without inventing weekly limits.
+- Add a version-gated `agy -p /usage --output-format json` fallback for signed-in CLI installations, including the
+  standard per-user Windows path. Parse its snake-case group/window fields, disable CLI auto-updates during probes,
+  and keep conversation identifiers and token counters out of the panel. Live Windows validation with agy 1.5.3
+  returned all four Gemini/Claude-GPT quota windows through the agent API without a model turn.
+- Preserve the dependency updates from 0.7.1 when adapting the contribution.
+- Make the widget integration fixture independent of the local night schedule; late-night test runs no longer
+  activate the night overlay over controls being tested.
+- Wait for the demo layout before calendar-test navigation and use delete-on-close smoke-test logs so a transient
+  inherited Windows handle cannot fail otherwise successful artifact checks.
+
+## 0.7.1 — 2026-11-09
+
+A compatibility and release-maintenance patch. Existing layouts and pairing settings are retained.
+
+- Update Playwright to 1.65.0, Microsoft.NET.Test.Sdk to 18.11.0 and the xUnit Visual Studio adapter to 4.0.1.
+- Update seven pinned GitHub Actions and verify release-artifact transfer and Pages archive compatibility in CI.
+- Limit public release assets to the signed APK, five agent archives, build provenance and SHA-256 checksums;
+  debug APKs and intermediate build files are excluded.
+- Fix `scripts/install.sh --apk` on Bash 3.2 when no device serial is specified. The empty target array was treated
+  as unset under `set -u`, stopping the installer before ADB ran. Adapted from PR #2, with installer regressions
+  for default device selection, explicit serials and failed updates that preserve the existing app.
+
+## 0.7.0 — 2026-11-09
+
+Smart Stack, richer AI session details and native macOS desk features. Existing layouts and pairing settings are
+preserved. Add the new widgets or the CodexBar template from the editor when you want them.
+
+- `--port` and `--config` can run an isolated development agent beside the installed instance. The local URL,
+  singleton mutex and USB reverse target follow the selected port, and restarts preserve the launch arguments.
+
+- Smart Stack: combine up to 12 widgets in one grid slot, reorder and configure them in the editor, disable individual
+  cards, and switch with dots or a vertical swipe. Rotation follows the visible panel's clock. Command widgets stay
+  directly on a page; their scripts are never included in the stack's public configuration.
+- Optional CodexBar quota source for Claude, Codex and Antigravity. Primary, secondary and additional measured limits
+  are retained; unavailable and synthetic windows are distinguished from real zero usage. Local Claude/Codex refresh
+  continues independently and takes over when a CodexBar provider fails or becomes stale.
+- CodexBar partial failures retain other providers' successful payloads even when the CLI exits nonzero. Tertiary
+  quota windows are included alongside primary, secondary and supplemental windows.
+- The background-command regression fixture now terminates only its own recorded process, preserving unrelated
+  processes and allowing the timeout tests to run concurrently on macOS.
+- The Windows installer refuses an APK with a different signing key and reports failed installs. It no longer
+  uninstalls the existing app as a fallback, preserving pairing and widget data.
+- Codex session details show model, reasoning effort, token counters, context window, lifecycle and recent tool name.
+  Resumed sessions are discovered in older directories; malformed counters and partially appended records do not hide
+  the session. Prompt text, responses and tool arguments are not sent to the phone.
+- macOS system media and artwork through optional `nowplaying-cli`, with Spotify/Music fallback; selected-output
+  volume capability reporting and optional read-only display volume through `m1ddc`.
+- Opt-in macOS lock sync over ADB. Commands have deadlines, unsuccessful devices are retried, and setup and polling
+  share a serialized state reconciler. Secure phone keyguards still require a manual unlock.
+
+Contributions adapted from [PR #1](https://github.com/ersinkoc/phonebox/pull/1) by
+[blx10](https://github.com/blx10) and [PR #2](https://github.com/ersinkoc/phonebox/pull/2) by
+[akpinarserdar](https://github.com/akpinarserdar), preserving the 0.6.9 fixes.
+
+Validated on Windows and an Apple M4 MacBook Air: 175 agent tests per platform, 29 browser tests, signed Android
+update with application data preserved, real USB lock/wake, media metadata/artwork and pause/resume, audio control,
+Apple GPU/RAM readings and live quota fallback. Secure phone keyguards still need a manual unlock.
+
+## 0.6.9 — 2026-11-09
+
+- A question from Claude Code (the "ask the user" tool) no longer shows up on the phone as an Allow / Deny prompt with
+  a block of JSON. The panel lists the question and its choices as text with a single **Got it**; the question itself
+  is still answered in the terminal on the PC, where Claude Code keeps waiting for it.
+- macOS: the GPU widgets work on Apple Silicon (load and the memory the GPU holds, read from `ioreg`). A GPU without
+  temperature or power sensors shows its memory instead of "0°C · 0 W".
+- The RAM meter shows used / total in GB.
+- Clock, date and weather text keep a sensible size on older Android System WebViews that do not know the `cqh` unit.
+- `scripts/install.sh`: finds the .NET runtime of a Homebrew install for the autostart service, and signs the agent
+  ad hoc on macOS.
+
+## 0.6.8 — 2026-11-08
+
+The last fixes from the code audit; each was reproduced first and verified after.
+
+- A settings tab that was opened earlier can no longer silently undo changes saved since (another tab, a script):
+  its save is refused with "changed in another tab or window — reload". This once turned the night screen back on.
+- All-day calendar events show on their own date wherever the phone is (west of UTC they showed a day early, east of
+  UTC they ran into the next morning).
+- A command widget whose command leaves a process running in the background (`start /b …`, `… &`) no longer stays
+  "running" until that process ends; it shows its output right after the command itself finishes.
+
+## 0.6.7 — 2026-11-08
+
+A security and reliability release from a code audit; every fix below was reproduced first and verified after.
+
+**Security**
+- Other web sites can no longer reach the local API with GET requests (browsers send no Origin header on those). A page
+  you visited could make the agent run your command widgets' commands; the agent now refuses any browser request from
+  another site, except following a link to the settings page.
+- Script in a Custom HTML widget can no longer reach the agent API through the phone's proxy (it could end processes,
+  switch Home Assistant entities and more). The proxy now only forwards the panel's own requests.
+- Script in a Custom HTML widget can no longer call the phone's native bridge (forget or switch paired computers, pin
+  the screen, take over the home screen…). Every bridge call needs a key only the panel itself gets.
+
+**Fixes**
+- Ending a process from the Processes widget no longer ends protected processes, other users' processes or the agent
+  among its child processes (it used to end the whole tree unchecked, e.g. the adb server started from a terminal).
+  The ones left running are counted in the reply.
+- A pushed value with a TTL now also disappears from the phone when it expires (the phone was never told and kept
+  showing it), and expired values no longer count against the 200-key limit.
+- A "while it lasts" rule with a rest time comes back at once after you edit it or resume paused rules (its condition
+  still held, but it waited out the rest time first).
+- The old agent no longer starts the same update a second time while it restarts into the new version (it logged
+  "access denied" on a *.old file).
+
+## 0.6.6 — 2026-11-08
+
+- Updates download from the GitHub API when github.com's download links answer with an error (a 504 held up the
+  0.6.5 update for a while).
+- A failed update check is retried after 15 minutes instead of 6 hours.
+- When GitHub answers anonymous API requests with 503 / 504 (it did for hours on 2026-11-08), update checks and
+  downloads are repeated with the GitHub CLI's token, if `gh` is signed in. The token is sent to api.github.com only.
+- **Fix:** Settings › General › *Install the phone app* hung for good (and blocked every later update until a restart)
+  when the last update check had failed.
+- Download fallbacks also kick in when GitHub does not answer at all (a timeout), not only on an error status.
+
+## 0.6.5 — 2026-11-08
+
+- **When the phone drops off USB**, Settings › General › Phone connection (and the log) say why, from the phone's own
+  view of its USB link: a cable or port that only charges, USB debugging turned off, or a port the computer lost.
+- The Next up widget no longer squeezes its title into the time line when it is only two rows high (Deep work
+  template); it drops its heading and keeps the title on one line instead.
+- The web demo includes the Weekend and Deep work templates.
+- `tools/demo-server.py` serves the web demo from the sources instead of its own copy of the made-up data, so it
+  has everything the live demo has (rules, OBS, battery care, permission prompts); webhooks sent to it with `curl`
+  reach the open tabs. The panel is at `/panel/` now.
+- New tour video and hero image for the README; `tools/ui-tests/media.js` makes the screenshots, the tour (MP4 + GIF)
+  and the hero from the demo.
+
+## 0.6.4 — 2026-11-08
+
+**Calm page switching.** Rules, webhooks and the idle return no longer jump between pages. The phone shows
+*"Claude needs me — switching to AI in 3…"* with **Stay** and **Go now**, then fades over. It waits while you are
+using the panel (20 s after the last touch by default), keeps at least 15 s between two automatic switches, and merges
+rules that fire one after another: the higher priority goes first, a rule that ends before its turn is dropped, a
+lower rule does not take over a higher rule's page, and when the higher one ends the waiting rule goes straight to its
+page instead of bouncing back first. All of it is set in Settings › General › Page switching.
+
+**Back home after a while.** Choose the home page (where the idle return and the Back key go), and per page how long
+it may stay without a touch (never, 30 s … 1 hour). A rule keeps its page at most 30 minutes by default; then the idle
+return takes over. The return home counts down too.
+
+**Richer rules.** Each rule has a priority, *only on these days* and *only between these hours*, *act when it lasts N
+seconds*, a rest time before it may act again, and its own countdown. New conditions: an AI quota above a
+percentage, a GitHub review requested, CI failing on your pull request, a device battery low, a slow or unreachable
+network, a pushed value above / below / equal to a value, and *always* (for schedules). New action: run a shortcut
+(a toggle switches back off when the rule ends). A condition has to be off for 4 s before a rule ends, so a
+flickering condition no longer flaps. Pause all rules for an hour from the phone's overview, the Rules widget or the
+settings.
+
+**Battery care.** Keeps the phone's battery between two levels (50–80 % by default) by switching its power through
+a Home Assistant smart plug or two shortcuts (for example `uhubctl` for a USB hub with switchable ports); phones cannot
+stop charging by themselves without root. The phone reports its battery to the agent every half minute.
+
+**Keep awake.** Over USB the agent turns off Android's screen saver (which starts on the charger) and keeps the phone
+awake while plugged in.
+
+**New widgets:** Rules, Battery care, Next up (the next calendar event with a countdown), Moon (drawn to its phase),
+Word clock. **New templates:** Nightstand, Planner, Automation, Weekend, Deep work.
+
+## 0.6.3 — 2026-11-08
+
+**Claude Code permission prompts on the phone.** When Claude Code asks for permission, the phone shows the request
+with Allow and Deny (through a `PermissionRequest` hook that the settings page installs). If the phone is not
+connected or nobody answers in time, Claude Code asks in the terminal as usual. Optionally only when you are away.
+
+**Live connection.** The phone keeps one server-sent-events stream open (`/api/stream`) instead of polling: page
+switches, notifications and permission prompts arrive at once. Polling remains as the fallback.
+
+**Linux and macOS.** The agent runs on Linux (x64, arm64) and macOS (Apple silicon, Intel): system readings, now
+playing (MPRIS / Spotify and Music), volume, processes and app icons, shortcuts, command widgets (bash / zsh),
+Claude token from the macOS Keychain. `scripts/install.sh` sets it up as a systemd user service or a launchd agent.
+
+**Rules.** Settings › Rules: when an AI session needs you, music plays, an app runs, the CPU is busy, you are away,
+at certain times or when a pushed value is on, show a page, a notification or push a value, optionally only while
+it lasts.
+
+**Live preview in the layout editor.** Switch the canvas to "Live preview" to run the real panel (served by the
+agent at `/panel/`) with your unsaved changes and live data; it follows the page you select.
+
+**Several computers.** The phone remembers every computer it was paired with; the page overview shows them and
+switches between them over Wi-Fi. A USB cable always wins, and the computer you plug into becomes the active one.
+
+**Several phones.** Phones identify themselves to the agent; Settings › General › Phones lists them, and each can
+get a name and its own pages (a desk phone with the clock and music, a tablet with everything).
+
+**Portrait.** Settings › Display › Orientation: landscape, portrait or follow the phone. Pages are still designed in
+landscape; in portrait the panel arranges the widgets by itself, top to bottom in a 6-column grid.
+
+**Import and export.** Export all pages or one page to a file and import pages from a file (added or replacing
+the current ones) to share layouts or move them to another computer; Advanced can download and load the whole
+settings file.
+
+**Themes.** Settings › Display: Default, AMOLED black, Midnight blue, Warm and Graphite, an accent colour for the
+background glow and page dots, and whether the album art tints the background.
+
+**Custom HTML widget.** Write your own widget in HTML, CSS and JavaScript; it runs in a sandbox (no access to the
+panel, the agent or the phone) and gets the PC's data through `phonebox.on('state', …)`; it can run shortcuts.
+
+**Keys and macros.** A shortcut key can also press a key combination (`ctrl+shift+m`, `win+d`, `f13`,
+media keys), type text or run a macro of several steps; on / off keys show their state on the phone (the mute key
+by itself, others from a pushed value). Windows uses SendInput, Linux xdotool or wtype, macOS System Events.
+
+**Device batteries.** A widget with the battery levels of wireless headphones, mice, keyboards and controllers
+(Windows: the Bluetooth battery that Settings shows; Linux: UPower; macOS: Magic devices and AirPods) and the phone.
+
+**OBS Studio.** Connect to OBS's WebSocket server (Settings › General); the OBS widget shows live and recording
+state with timers, the current scene and scene buttons, and can start or stop the stream and recording, switch
+scenes and mute the mic. The On air widget and rules also know when OBS is live.
+
+**Home Assistant.** Add the address and a long-lived access token in Settings › General; the Home Assistant widget
+shows the entities you list (lights, switches, sensors, doors, locks, covers, scenes…) and switches them with a tap.
+The token stays on the computer and the phone can only reach the entities its widgets list.
+
+**Docker.** A Docker widget lists Docker or Podman containers with their state, health, CPU and memory; with
+"Allow start / stop" turned on in its settings, tap a container to start, stop or restart it.
+
+**Calendars.** Add iCalendar feeds (Google's secret iCal address, Outlook's published calendar, iCloud, any ICS
+or `webcal://` link) in Settings › General; the new Agenda widget lists the coming days or, when small, the current or
+next event. Recurring events, time zones and moved or cancelled occurrences are handled. A rule can react to "a
+calendar event is on" (e.g. show an on-air sign during meetings). The feed addresses never leave the computer.
+
+**Distribution.** A Scoop bucket in the repository (`scoop bucket add phonebox https://github.com/ersinkoc/phonebox`),
+winget manifests ready for winget-pkgs, and a release workflow that builds everything on GitHub, publishes it with
+checksums and updates both. Agents installed this way put the app on the phone from Settings › General ›
+*Install the phone app*.
+
+**Engineering.** Agent unit tests (`agent/PhoneBox.Agent.Tests`: config normalization and migration, Wi-Fi path rules
+and tokens, webhook keys, calendars, rules, Home Assistant and OBS against fake servers, key parsing) and browser tests
+of the panel and settings page against the web demo (`tools/ui-tests`, Playwright, including every widget in the
+catalogue), both in CI. The panel's 2,800-line `app.js` is now ES modules: `main.js` and `widgets/*.js`.
+
+**On air.** A new widget lights up while the computer's microphone or camera is in use (Windows: the same data
+as the taskbar's privacy icons; Linux: running capture streams and open video devices), or while a pushed value is on.
+Rules can react to the microphone and the camera too.
+
+**Phone sensors and kiosk.** Brightness can follow the room (light sensor), the night screen can come on whenever
+the room is dark, and a hand near the phone wakes it (proximity sensor). Screen pinning keeps Home and Recents on
+the panel, and the panel can become the phone's home app, so it starts by itself after a reboot; neither needs root.
+
+**Fixes.** macOS reads processes from one `ps` snapshot (the list stayed empty with many processes); the phone no
+longer opens a second live stream after a quick pause and resume; `install.ps1 -Apk` rebuilds the APK when the app's
+sources are newer than the one in `dist\` (new `-BuildApk` forces it).
+
+**Live demo.** <https://ersinkoc.github.io/phonebox/> runs the real panel and layout editor in the browser with
+made-up data.
+
+## 0.6.2 — 2026-11-07
+
+**Widgets.** Pages are now 12 × 6 grids of widgets instead of fixed screens.
+
+- 41 widget types: clocks (digital, analog, world), calendar, time progress, countdown, pomodoro, quick timer,
+  stopwatch, weather, forecast, sun & moon, air quality, now playing, volume, metric tiles, gauges, charts,
+  memory & disks, processes, top processes, AI quotas, quota ring, AI sessions, GitHub, shortcut grid, big button,
+  phone battery, note, checklist, counter, breathe, quote, title, image / webcam, Hacker News, exchange rates,
+  crypto, command output, pushed values and notifications.
+- 18 page templates: Home, AI quotas, Sessions, System, Processes, Shortcuts, Music, Clock, Focus, World,
+  Dashboard, DevOps, Feeds, Ambient, Markets, Daily, Status, Calm.
+- Visual layout editor in the settings page: drag to move, drag the corner to resize, per-widget options,
+  a searchable widget palette grouped by category, and a template picker.
+- Existing 0.6.1 settings migrate automatically (page order, home tiles, shortcut columns, kill permission).
+
+**Getting around.** Tap the page dots or long-press a page for an overview of all pages; the phone's volume keys
+flip pages (can be turned off); the page title flashes when it changes.
+
+**Webhooks.** The agent accepts data as well as serving it: `POST /api/push/<key>` (shown by "Pushed value"
+widgets), `/api/notify` (toast, vibration, notifications widget), `/api/goto/<page>` and `/api/refresh`.
+Other machines on the network or Tailscale use a separate webhook key that never opens the phone API.
+
+**Command widgets** run a PowerShell command on the PC every N seconds and show its output; the phone never sees
+the command.
+
+**Tools.** `tools/demo-server.py` runs the panel and the settings page in a desktop browser with made-up data.
+
+## 0.6.1
+
+- Automatic updates from GitHub releases: the agent installs the new APK on the phone over USB and replaces
+  itself.
+
+## 0.6.0
+
+- Wi-Fi & Tailscale mode: pair once over USB, then HTTPS to the PC with a pinned certificate and a secret key.
+
+## 0.5.0
+
+- First public release: home, AI quotas, sessions & GitHub, system, processes and shortcut pages; settings page;
+  tray agent; night mode.
